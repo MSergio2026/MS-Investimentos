@@ -1,3 +1,4 @@
+import io
 import os
 import pandas as pd
 import requests
@@ -17,6 +18,15 @@ BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 
+def _baixar_csv(url):
+    """Baixa o CSV se identificando como navegador — o Google às vezes
+    bloqueia pedidos vindos de servidores (como o GitHub Actions) sem isso."""
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    resposta = requests.get(url, headers=headers, timeout=15)
+    resposta.raise_for_status()
+    return io.StringIO(resposta.text)
+
+
 def _converter_numero_br(valor):
     """Converte números no formato brasileiro (ex: '30,50' ou '8,34%') para float."""
     if pd.isna(valor):
@@ -33,7 +43,7 @@ def _converter_numero_br(valor):
 
 
 def carregar_carteira():
-    bruto = pd.read_csv(CSV_URL, header=None)
+    bruto = pd.read_csv(_baixar_csv(CSV_URL), header=None)
     linha_cabecalho = None
     for i, valor in enumerate(bruto[0]):
         if str(valor).strip() == "Ativo":
@@ -42,7 +52,7 @@ def carregar_carteira():
     if linha_cabecalho is None:
         raise ValueError("Não encontrei a coluna 'Ativo' na planilha.")
 
-    df = pd.read_csv(CSV_URL, skiprows=linha_cabecalho)
+    df = pd.read_csv(_baixar_csv(CSV_URL), skiprows=linha_cabecalho)
     df["Quantidade"] = df["Quantidade"].apply(_converter_numero_br)
     df["Variação Dia (%)"] = df["Variação Dia (%)"].apply(_converter_numero_br)
     df = df.dropna(subset=["Ativo", "Quantidade"])
