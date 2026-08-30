@@ -1,0 +1,29 @@
+name: Monitor Carteira
+
+on:
+  schedule:
+    # Roda a cada 30 minutos, das 10h às 18h (horário de Brasília),
+    # de segunda a sexta. GitHub Actions usa horário UTC (Brasília = UTC-3).
+    - cron: "*/30 13-21 * * 1-5"
+  workflow_dispatch: # permite rodar manualmente pelo site do GitHub, pra testar
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o código do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependências
+        run: pip install pandas requests
+
+      - name: Rodar verificação de quedas
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python monitor.py
