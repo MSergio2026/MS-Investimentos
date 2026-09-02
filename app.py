@@ -1,5 +1,7 @@
+import io
 import streamlit as st
 import pandas as pd
+import requests
 
 # ============================================================
 # CONFIGURAÇÃO — cole aqui o link da sua planilha publicada
@@ -17,6 +19,21 @@ METAS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQGHswrii-CDmpipihN
 st.set_page_config(page_title="Minha Carteira", page_icon="💰", layout="wide")
 
 st.title("💰 Minha Carteira de Investimentos")
+
+
+def _baixar_csv(url, tentativas=3):
+    """Baixa o CSV se identificando como navegador — o Google às vezes
+    demora ou bloqueia pedidos sem isso. Tenta algumas vezes antes de desistir."""
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    ultimo_erro = None
+    for tentativa in range(1, tentativas + 1):
+        try:
+            resposta = requests.get(url, headers=headers, timeout=30)
+            resposta.raise_for_status()
+            return io.StringIO(resposta.text)
+        except requests.exceptions.RequestException as erro:
+            ultimo_erro = erro
+    raise ultimo_erro
 
 
 def _converter_numero_br(valor):
@@ -39,7 +56,7 @@ def _converter_numero_br(valor):
 def carregar_dados(url):
     # a planilha tem linhas de título antes da tabela — acha automaticamente
     # em qual linha está o cabeçalho real (a que começa com "Ativo")
-    bruto = pd.read_csv(url, header=None)
+    bruto = pd.read_csv(_baixar_csv(url), header=None)
     linha_cabecalho = None
     for i, valor in enumerate(bruto[0]):
         if str(valor).strip() == "Ativo":
@@ -48,7 +65,7 @@ def carregar_dados(url):
     if linha_cabecalho is None:
         raise ValueError("Não encontrei a coluna 'Ativo' na planilha — confira os nomes das colunas.")
 
-    df = pd.read_csv(url, skiprows=linha_cabecalho)
+    df = pd.read_csv(_baixar_csv(url), skiprows=linha_cabecalho)
 
     # converte as colunas numéricas (aceita formato brasileiro com vírgula)
     colunas_numericas = [
@@ -86,7 +103,7 @@ def carregar_dados(url):
 @st.cache_data(ttl=300)
 def carregar_metas(url):
     """Lê a aba 'Metas' (Categoria | % Alvo)."""
-    df = pd.read_csv(url)
+    df = pd.read_csv(_baixar_csv(url))
     df = df.dropna(subset=[df.columns[0]])
     df.columns = ["Categoria", "% Alvo"]
     df["% Alvo"] = df["% Alvo"].apply(_converter_numero_br)
