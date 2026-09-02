@@ -18,13 +18,21 @@ BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 
-def _baixar_csv(url):
+def _baixar_csv(url, tentativas=3):
     """Baixa o CSV se identificando como navegador — o Google às vezes
-    bloqueia pedidos vindos de servidores (como o GitHub Actions) sem isso."""
+    bloqueia pedidos vindos de servidores (como o GitHub Actions) sem isso.
+    Tenta algumas vezes antes de desistir, caso o Google demore a responder."""
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-    resposta = requests.get(url, headers=headers, timeout=15)
-    resposta.raise_for_status()
-    return io.StringIO(resposta.text)
+    ultimo_erro = None
+    for tentativa in range(1, tentativas + 1):
+        try:
+            resposta = requests.get(url, headers=headers, timeout=30)
+            resposta.raise_for_status()
+            return io.StringIO(resposta.text)
+        except requests.exceptions.RequestException as erro:
+            ultimo_erro = erro
+            print(f"Tentativa {tentativa} de {tentativas} falhou: {erro}")
+    raise ultimo_erro
 
 
 def _converter_numero_br(valor):
