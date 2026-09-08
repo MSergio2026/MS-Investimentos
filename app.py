@@ -196,6 +196,57 @@ st.caption(
 )
 
 # ============================================================
+# INDICADOR DE ATRATIVIDADE DO DIA
+# ============================================================
+st.divider()
+st.subheader("🏆 Indicador de atratividade do dia")
+st.caption(
+    "Combina Margem de Segurança e DY atual numa pontuação de 0 a 100."
+)
+
+indicador_df = df[
+    df["Margem de Segurança (%)"].notna() & df["Dividendos 12m (R$)"].notna()
+].copy()
+
+if indicador_df.empty:
+    st.info("Preencha 'Dividendos 12m (R$)' para os ativos para calcular o indicador.")
+else:
+    # cada fator vira um "ranking percentual" entre os ativos elegíveis (0 a 1),
+    # depois tiramos a média dos dois
+    rank_margem = indicador_df["Margem de Segurança (%)"].rank(pct=True)
+    rank_dy = indicador_df["Dividendos 12m (R$)"].rank(pct=True)
+    indicador_df["Indicador"] = (rank_margem + rank_dy) / 2 * 100
+
+    indicador_df = indicador_df.sort_values("Indicador", ascending=False)
+    melhor = indicador_df.iloc[0]
+
+    st.success(
+        f"🥇 Ativo mais atrativo hoje: **{melhor['Ativo']}** "
+        f"(indicador {melhor['Indicador']:.0f}/100)"
+    )
+
+    st.dataframe(
+        indicador_df[
+            [
+                "Ativo",
+                "Categoria",
+                "Margem de Segurança (%)",
+                "Dividendos 12m (R$)",
+                "Indicador",
+            ]
+        ]
+        .rename(columns={"Dividendos 12m (R$)": "DY Atual (%)"})
+        .style.format(
+            {
+                "Margem de Segurança (%)": "{:.1f}%",
+                "DY Atual (%)": "{:.2f}%",
+                "Indicador": "{:.0f}",
+            }
+        ),
+        use_container_width=True,
+    )
+
+# ============================================================
 # METAS E REBALANCEAMENTO
 # ============================================================
 st.divider()
